@@ -1,69 +1,50 @@
-# This is a dockerfile that sets up a full Gym install with test dependencies
 Bootstrap: docker
+FROM: pytorch/pytorch:1.0.1-cuda10.0-cudnn7-runtime
+# Debian Stretch without manpages and other files
+# usually not needed in containers.
 
-# Here we ll build our container upon the tensorflow container
-From: tensorflow/tensorflow:latest-gpu-py3
+%help
 
-# Then we put everything we need to install
+Contains R version 3.6.0
+
 %post
-apt -y update && \
-apt install -y keyboard-configuration && \
-apt install -y \
-python3-setuptools \
-python3-dev \
-python-pyglet \
-python3-opengl \
-libjpeg-dev \
-libboost-all-dev \
-libsdl2-dev \
-libosmesa6-dev \
-patchelf \
-ffmpeg \
-xvfb \
-wget \
-git \
-unzip && \
-apt clean && \
+
+# Packages needed inside the container.
+export CONTAINER_SOFTWARE="gfortran g++ gcc make libcurl4-gnutls-dev"
+## Set build variables.
+# Packages needed only for the build process.
+export BUILD_SOFTWARE="wget zlib1g-dev libbz2-dev liblzma-dev libpcre3-dev libcurl4-gnutls-dev"
+# Needed for downloading source.
+export R_BASE_URI="https://cran.r-project.org/src/base/R-3/"
+export R_FOLDER_NAME="R-3.6.0"
+export R_PACKAGE_NAME="${R_FOLDER_NAME}.tar.gz"
+# Set paths to facilitate the build process.
+export BUILDHOME="/tmp"
+
+# Install build and run requirements.
+apt-get update
+apt-get install $BUILD_SOFTWARE $CONTAINER_SOFTWARE -y
+
+# Get R Package
+wget ${R_BASE_URI}${R_PACKAGE_NAME}
+tar -xf $R_PACKAGE_NAME
+
+# Build R
+cd $R_FOLDER_NAME
+./configure --with-readline=no --with-x=no --disable-java
+make
+make install
+
+# Removing installation overhead.
+
+cd
+rm -rf /tmp/*
+apt-get purge $BUILD_SOFTWARE -y
+apt-get autoclean -y
+apt-get autoremove -y
 rm -rf /var/lib/apt/lists/*
 
-# Download Gym and Mujoco
-mkdir /Gym && cd /Gym
-git clone https://github.com/openai/gym.git || true && \
-mkdir /Gym/.mujoco && cd /Gym/.mujoco
-wget https://www.roboti.us/download/mjpro150_linux.zip  && \
-unzip mjpro150_linux.zip && \
-wget https://www.roboti.us/download/mujoco200_linux.zip && \
-unzip mujoco200_linux.zip && \
-mv mujoco200_linux mujoco200
+%test
 
-# Export global environment variables
-export MUJOCO_KEY='replacebyyourkey'
-export MUJOCO_PY_MJKEY_PATH=/Gym/.mujoco/mjkey.txt
-export MUJOCO_PY_MUJOCO_PATH=/Gym/.mujoco/mujoco200/
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/Gym/.mujoco/mjpro150/bin
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/Gym/.mujoco/mujoco200/bin
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/bin
-echo $MUJOCO_KEY | base64 --decode > /Gym/.mujoco/mjkey.txt
-
-# Install python dependencies
-wget https://raw.githubusercontent.com/openai/mujoco-py/master/requirements.txt
-pip install -r requirements.txt
-# Install everything
-cd /Gym/gym
-pip install -e '.[all]'
-# Change permission to use mujoco_py as non sudoer user
-chmod -R 777 /usr/local/lib/python3.5/dist-packages/mujoco_py/
-
-# Export global environment variables
-%environment
-export SHELL=/bin/bash
-export MUJOCO_KEY='replacebyyourkey'
-export MUJOCO_PY_MJKEY_PATH=/Gym/.mujoco/mjkey.txt
-export MUJOCO_PY_MUJOCO_PATH=/Gym/.mujoco/mujoco200/
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/Gym/.mujoco/mjpro150/bin
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/Gym/.mujoco/mujoco200/bin
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/bin
-export PATH=/Gym/gym/.tox/py3/bin:$PATH
-
-%runscript
-exec /bin/bash "$@"
+# Can we call R?
+R --version
