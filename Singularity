@@ -1,13 +1,26 @@
-# This is a dockerfile that sets up a full Gym install with test dependencies
+################# Header: Define the base system you want to use ################
+# Reference of the kind of base you want to use (e.g., docker, debootstrap, shub).
 Bootstrap: docker
-
-# Here we ll build our container upon the tensorflow container
+# Select the docker image you want to use (Here we choose tensorflow)
 From: tensorflow/tensorflow:latest-gpu-py3
 
-# Then we put everything we need to install
-%post
-touch /toto.txt
+################# Section: Defining the system #################################
+# Commands in the %post section are executed within the container.
+% post
+        echo "Installing Tools with apt-get"
+        apt-get update
+        apt-get install -y cmake libcupti-dev libyaml-dev wget unzip
+        apt-get clean
+        echo "Installing things with pip"
+        pip install tqdm
+        echo "Creating mount points"
+        mkdir /dataset
+        mkdir /tmp_log
+        mkdir /final_log
 
+
+# Environment variables that should be sourced at runtime.
 %environment
-SHELL=/bin/bash
-export SHELL
+        # use bash as default shell
+        SHELL=/bin/bash
+        export SHELL
