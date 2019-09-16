@@ -1,21 +1,22 @@
-# Reference of the kind of base you want to use (e.g., docker, debootstrap, shub).
 Bootstrap: docker
-# Select the docker image you want to use (Here we choose tensorflow)
-From: tensorflow/tensorflow:latest-gpu-py3
+From: pytorch/pytorch:1.0.1-cuda10.0-cudnn7-runtime
 
-################# Section: Defining the system #################################
-# Commands in the %post section are executed within the container.
-% post
-        apt-get update $$
-        apt-get install -y cmake libcupti-dev libyaml-dev wget unzip &&
-        apt-get clean &&
-        pip install tqdm &&
-        mkdir /dataset &&
-        mkdir /tmp_log &&
-        mkdir /final_log
+%post
+        export PATH=$PATH:/opt/conda/bin
+        echo "Installing Tools with apt-get "
+        apt-get update
+        apt-get install -y --no-install-recommends g++ make automake autoconf bzip2 unzip wget sox libtool git subversion python2.7 zlib1g-dev ca-certificates patch ffmpeg vim 
+        cd /
+        git clone https://github.com/kaldi-asr/kaldi.git
+        cd kaldi/tools
+        ./extras/install_mkl.sh
+        make
+        cd /kaldi/src
+        ./configure --shared --use-cuda=no
+        make depend
+        make
 
-# Environment variables that should be sourced at runtime.
 %environment
-        # use bash as default shell
         SHELL=/bin/bash
         export SHELL
+
